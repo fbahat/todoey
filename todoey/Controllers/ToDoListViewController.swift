@@ -11,10 +11,12 @@ import UIKit
 class ToDoListViewController: UITableViewController {
 
         var itemArray =  [Item]()
-        let defaults = UserDefaults.standard
-    
+    let dataFieldPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("item.plist")
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        
+        
         
         let newItem = Item()
         newItem.title = "Eggs"
@@ -28,11 +30,8 @@ class ToDoListViewController: UITableViewController {
         newItem3.title = "Brother"
         itemArray.append(newItem3)
        
-
-        
-        if let items = defaults.array(forKey: "ToDoListArray") as? [Item] {
-                    itemArray = items}
-        
+    
+        loadData()
     }
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return itemArray.count
@@ -53,20 +52,14 @@ class ToDoListViewController: UITableViewController {
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
 //        print(itemArray[indexPath.row])
-        
-        
-        
+        itemArray[indexPath.row].done = !itemArray[indexPath.row].done
+        tableView.reloadData()
         
         tableView.deselectRow(at: indexPath, animated: true) // Bu komut ile beraber sectigimiz row yanip sonmektedir.
-        if tableView.cellForRow(at: indexPath)?.accessoryType == .checkmark {
-            tableView.cellForRow(at: indexPath)?.accessoryType = .none
-}
-        else{
-            tableView.cellForRow(at: indexPath)?.accessoryType = .checkmark
-
-        }
+        
+        savedItems()
     }
-       
+    
         
     @IBAction func addButtonPressed(_ sender: UIBarButtonItem) {
         
@@ -77,9 +70,9 @@ class ToDoListViewController: UITableViewController {
             let newItem = Item()
             newItem.title = textField.text!
             self.itemArray.append(newItem)
-            self.tableView.reloadData()
-            self.defaults.set(self.itemArray, forKey: "ToDoListArray")
             
+           self.savedItems()
+
         }
         alert.addTextField { (alertTextField) in
             alertTextField.placeholder = "Create New Item"
@@ -90,10 +83,31 @@ class ToDoListViewController: UITableViewController {
         
         present(alert, animated: true  , completion: nil)
     
-            
+            self.savedItems()
     }
-    
+    func savedItems() {
+        let encoder = PropertyListEncoder()
+        
+        do{
+            let data = try encoder.encode(itemArray)
+            try data.write(to: dataFieldPath!)
+        } catch{
+            print("Error var sanirim hele bi bak, \(error)")
+        }
+        self.tableView.reloadData()
+
     }
-    
+    func loadData() {       //Bu komut ile beraber listeye ekledigimiz butun hucreler save edilecektir.
+        do {
+            if let data = try? Data(contentsOf: dataFieldPath!){
+                let decoder = PropertyListDecoder()
+                itemArray = try decoder.decode([Item].self, from: data)
+            }
+    }
+        catch{
+            print(error)
+        }
+    }
+}
 
 
