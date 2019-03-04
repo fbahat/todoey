@@ -7,31 +7,27 @@
 //
 
 import UIKit
+import CoreData
 
 class ToDoListViewController: UITableViewController {
+    
+        let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext// Data bellegimizin yolunu buradan acmis bulunduk. Kullanacagimiz data bellek. Belgelerin savelenmesi icin
 
         var itemArray =  [Item]()
-    let dataFieldPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("item.plist")
+    
+    var selectedCategory : Category? {
+        didSet {
+            loadData()
+        }
+    }
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         
         
+         print(FileManager.default.urls(for: .documentDirectory, in: .userDomainMask))
+            
         
-        
-        let newItem = Item()
-        newItem.title = "Eggs"
-        itemArray.append(newItem)
-        
-        let newItem2 = Item()
-        newItem2.title = "Whatsapp"
-        itemArray.append(newItem2)
-        
-        let newItem3 = Item()
-        newItem3.title = "Brother"
-        itemArray.append(newItem3)
-       
-    
-        loadData()
     }
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return itemArray.count
@@ -52,6 +48,9 @@ class ToDoListViewController: UITableViewController {
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
 //        print(itemArray[indexPath.row])
+//        context.delete(itemArray[indexPath.row])
+//        itemArray.remove(at: indexPath.row)// Bu komut ile beaber row a bastigimizda item silinmektedir.
+        
         itemArray[indexPath.row].done = !itemArray[indexPath.row].done
         tableView.reloadData()
         
@@ -67,12 +66,13 @@ class ToDoListViewController: UITableViewController {
 
         let alert = UIAlertController(title: "Add New To Do List", message: "" , preferredStyle: .alert)
         let action = UIAlertAction(title: "Add Item", style: .default) { (UIAlertAction) in
-            let newItem = Item()
+            let newItem = Item(context: self.context)
             newItem.title = textField.text!
+            newItem.done = false
+            newItem.parentCategory = self.selectedCategory
             self.itemArray.append(newItem)
             
            self.savedItems()
-
         }
         alert.addTextField { (alertTextField) in
             alertTextField.placeholder = "Create New Item"
@@ -86,28 +86,51 @@ class ToDoListViewController: UITableViewController {
             self.savedItems()
     }
     func savedItems() {
-        let encoder = PropertyListEncoder()
         
         do{
-            let data = try encoder.encode(itemArray)
-            try data.write(to: dataFieldPath!)
+           try context.save()
         } catch{
-            print("Error var sanirim hele bi bak, \(error)")
+            print("Error saving context 2233 \(error)")
         }
         self.tableView.reloadData()
 
     }
     func loadData() {       //Bu komut ile beraber listeye ekledigimiz butun hucreler save edilecektir.
-        do {
-            if let data = try? Data(contentsOf: dataFieldPath!){
-                let decoder = PropertyListDecoder()
-                itemArray = try decoder.decode([Item].self, from: data)
-            }
-    }
-        catch{
-            print(error)
+        let request : NSFetchRequest<Item>  = Item.fetchRequest()
+        
+        do{
+           itemArray =  try context.fetch(request) }
+        catch
+        {
+            print("Sanirim burada hata var hatanin adi \n(error)")
         }
     }
 }
-
+// Search bar methods
+extension ToDoListViewController : UISearchBarDelegate  {
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        let request : NSFetchRequest<Item> = Item.fetchRequest()
+        let predicate = NSPredicate(format: "title Contains[cd] %@", searchBar.text!)
+        request.predicate = predicate
+        let sortDescprt = NSSortDescriptor(key: "title", ascending: true)
+        request.sortDescriptors = [sortDescprt]
+        loadData()
+        do{
+            itemArray =  try context.fetch(request) }
+        catch
+        {
+            print("Sanirim burada hata var hatanin adi \n(error)")
+        }
+        tableView.reloadData()
+        func searchBar(_: UISearchBar, textDidChange: String){ // Bu komut ile beraber search kismini sildigimizde tekrardan datayi geri toplanmasi saglaniyor.
+            if searchBar.text?.count == 0 {
+                loadData()
+                DispatchQueue.main.async {
+                    searchBar.resignFirstResponder()
+                    }
+            }
+        }
+    }
+    
+}
 
